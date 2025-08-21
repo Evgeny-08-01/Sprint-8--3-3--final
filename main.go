@@ -8,7 +8,7 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-const (
+const  (
 	ParcelStatusRegistered = "registered"
 	ParcelStatusSent       = "sent"
 	ParcelStatusDelivered  = "delivered"
