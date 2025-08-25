@@ -74,7 +74,7 @@ if stat.Status==ParcelStatusRegistered {
  _, err := s.db.Exec("UPDATE parcel SET address = :address WHERE number = :number",sql.Named("address", 
  address),sql.Named("number", number))
 return err}
-	return err
+	 return err
 }
 
 func (s ParcelStore) Delete(number int) error {

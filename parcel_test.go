@@ -114,7 +114,7 @@ newLine,err:=db.Exec("INSERT INTO parcel (client,status,address,created_at) VALU
 
 // TestSetStatus проверяет обновление статуса
 func TestSetStatus(t *testing.T) {
-	// prepare
+	 // prepare
 	// настройте подключение к БД
  db, err := sql.Open("sqlite", "tracker.db")
     if err != nil {
