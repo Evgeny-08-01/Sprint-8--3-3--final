@@ -25,7 +25,6 @@ type Parcel struct {
 type ParcelService struct {
 	store ParcelStore
 }
-
 func NewParcelService(store ParcelStore) ParcelService {
 	return ParcelService{store: store}
 }
@@ -37,7 +36,6 @@ func (s ParcelService) Register(client int, address string) (Parcel, error) {
 		Address:   address,
 		CreatedAt: time.Now().UTC().Format(time.RFC3339),
 	}
-
 	id, err := s.store.Add(parcel)
 	if err != nil {
 		return parcel, err
@@ -98,9 +96,14 @@ func (s ParcelService) Delete(number int) error {
 
 func main() {
 	// настройте подключение к БД
-
-	store := // создайте объект ParcelStore функцией NewParcelStore
-	service := NewParcelService(store)
+	db, err := sql.Open("sqlite", "tracker.db")
+	if err != nil {
+		fmt.Println(err, "ошибка при подключении к  db, err := sql.Open(`sqlite`, `tracker.db`)")
+		return
+	}
+	defer db.Close()
+	store := NewParcelStore(db)        // создайте объект ParcelStore функцией NewParcelStore
+	service := NewParcelService(store) //одно из полей содержит базу db
 
 	// регистрация посылки
 	client := 1
