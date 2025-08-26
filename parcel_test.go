@@ -2,7 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"fmt"
 	"math/rand"
 	"testing"
 	"time"
@@ -36,47 +35,34 @@ func TestAddGetDelete(t *testing.T) {
 	// настройте подключение к БД
 	db, err := sql.Open("sqlite", "tracker.db")
 	if err != nil {
-		fmt.Println(err)
-		require.NotNil(t, err, "ошибка при подключении к  db, err := sql.Open(`sqlite`, `tracker.db`)")
+		require.Error(t, err, "ошибка при подключении к  db, err := sql.Open(`sqlite`, `tracker.db`)")
 		return
 	}
 	defer db.Close()
 	store := NewParcelStore(db)
 	parcel := getTestParcel()
+	service := NewParcelService(store)
 
 	// add
 	// добавьте новую посылку в БД, убедитесь в отсутствии ошибки и наличии идентификатора
-	newLine, err := db.Exec("INSERT INTO parcel (client,status,address,created_at) VALUES (:Client,:Status,:Address,:CreatedAt)",
-		sql.Named("Client", parcel.Client),
-		sql.Named("Status", parcel.Status),
-		sql.Named("Address", parcel.Address),
-		sql.Named("CreatedAt", parcel.CreatedAt))
-	assert.Nil(t, err, "ошибка при добавлении посылки")
-	lastID, err := newLine.LastInsertId()
-	if assert.Nil(t, err, "ошибка при добавлении посылки") {
-		assert.NotEmpty(t, lastID, "нет идентификатора посылки")
-	}
+	newLine, err := service.Register(parcel.Client, parcel.Address)
+	require.NoError(t, err, "ошибка при добавлении посылки")
+	assert.NotEmpty(t, newLine.Number, "нет идентификатора посылки")
 
 	// get
 	// получите только что добавленную посылку, убедитесь в отсутствии ошибки
-
-	parcelReal, err := store.Get(int(lastID))
-	assert.Nil(t, err, "в parcelReal-добавленная посылка, ошибка")
-	// проверьте, что значения всех полей в полученном объекте совпадают со значениями полей в переменной parcel
-	assert.Equal(t, parcel.Address, parcelReal.Address, "в parcelReal-адрес не совпадает")
-	assert.Equal(t, parcel.Client, parcelReal.Client, "в parcelReal-клиент не совпадает")
-	assert.Equal(t, parcel.CreatedAt, parcelReal.CreatedAt, "в parcelReal-время создания не совпадает")
-	//assert.Equal(t,parcel.Number,parcelReal.Number,"в parcelReal-номер не совпадает")
-	assert.Equal(t, parcel.Status, parcelReal.Status, "в parcelReal-статус не совпадает")
+	parcelReal, err := store.Get(newLine.Number)
+	assert.NoError(t, err, "в parcelReal-добавленная посылка, ошибка")
+	parcel.Number = newLine.Number
+	assert.Equal(t, parcel, parcelReal, "полученная из БД добавленная посылка-не совпадает с добавленной тестом посылкой")
+	
 	// delete
 	// удалите добавленную посылку, убедитесь в отсутствии ошибки
-	err = store.Delete(int(lastID))
-	assert.Nil(t, err, "ошибка при удалении Delete")
+	err = store.Delete(newLine.Number)
+	assert.NoError(t, err, "ошибка при удалении Delete")
 	// проверьте, что посылку больше нельзя получить из БД
-	parcelReal, err = store.Get(int(lastID))
-	if assert.NotNil(t, err, "Get не выдает ошибку. ОШИБКА") {
-		assert.Empty(t, parcelReal, "после Get есть инф о посылке. ОШИБКА")
-	}
+	_, err = store.Get(newLine.Number)
+	require.ErrorIs(t, err, sql.ErrNoRows,"посылка не была удалена. ОШИБКА")
 }
 
 // TestSetAddress проверяет обновление адреса
@@ -85,34 +71,28 @@ func TestSetAddress(t *testing.T) {
 	// настройте подключение к БД
 	db, err := sql.Open("sqlite", "tracker.db")
 	if err != nil {
-		fmt.Println(err)
-		require.NotNil(t, err, "ошибка при подключении к  db, err := sql.Open(`sqlite`, `tracker.db`)")
+		require.Error(t, err, "ошибка при подключении к  db, err := sql.Open(`sqlite`, `tracker.db`)")
 		return
 	}
 	defer db.Close()
 	store := NewParcelStore(db)
 	parcel := getTestParcel()
+	service := NewParcelService(store)
 	// add
 	// добавьте новую посылку в БД, убедитесь в отсутствии ошибки и наличии идентификатора
-	newLine, err := db.Exec("INSERT INTO parcel (client,status,address,created_at) VALUES (:Client,:Status,:Address,:CreatedAt)",
-		sql.Named("Client", parcel.Client),
-		sql.Named("Status", parcel.Status),
-		sql.Named("Address", parcel.Address),
-		sql.Named("CreatedAt", parcel.CreatedAt))
-	assert.Nil(t, err, "ошибка при добавлении посылки")
-	lastID, err := newLine.LastInsertId()
-	if assert.Nil(t, err, "ошибка при добавлении посылки") {
-		assert.NotEmpty(t, lastID, "идентификатора посылки нет")
-	}
+	newLine, err := service.Register(parcel.Client, parcel.Address)
+	require.NoError(t, err, "ошибка при добавлении посылки")
+	assert.NotEmpty(t, newLine.Number, "нет идентификатора посылки")
+
 	// set address
 	// обновите адрес, убедитесь в отсутствии ошибки
 	newAddress := "new test address"
-	err = store.SetAddress(int(lastID), newAddress)
-	assert.Nil(t, err, "новый адрес не добавлен. ОШИБКА")
+	err = store.SetAddress(newLine.Number, newAddress)
+	require.NoError(t, err, "ошибка при вызове SetAddress")
 	// check
 	// получите добавленную посылку и убедитесь, что адрес обновился
-	parcelReal, err := store.Get(int(lastID))
-	assert.Nil(t, err, "ошибка при получении инф о добавленной посылке")
+	parcelReal, err := store.Get(newLine.Number)
+	require.NoError(t, err, "ошибка при получении посылки")
 	assert.Equal(t, parcelReal.Address, newAddress, "адреса не совпали после SetAddress")
 }
 
@@ -122,34 +102,27 @@ func TestSetStatus(t *testing.T) {
 	// настройте подключение к БД
 	db, err := sql.Open("sqlite", "tracker.db")
 	if err != nil {
-		fmt.Println(err)
-		require.NotNil(t, err, "ошибка при подключении к  db, err := sql.Open(`sqlite`, `tracker.db`)")
+		require.NoError(t, err, "ошибка при подключении к  db, err := sql.Open(`sqlite`, `tracker.db`)")
 		return
 	}
 	defer db.Close()
 	store := NewParcelStore(db)
 	parcel := getTestParcel()
+	service := NewParcelService(store)
 	// add
 	// добавьте новую посылку в БД, убедитесь в отсутствии ошибки и наличии идентификатора
-	newLine, err := db.Exec("INSERT INTO parcel (client,status,address,created_at) VALUES (:Client,:Status,:Address,:CreatedAt)",
-		sql.Named("Client", parcel.Client),
-		sql.Named("Status", parcel.Status),
-		sql.Named("Address", parcel.Address),
-		sql.Named("CreatedAt", parcel.CreatedAt))
-	assert.Nil(t, err, "ошибкак при добавлении посылки")
-	lastID, err := newLine.LastInsertId()
-	if assert.Nil(t, err, "ошибка при добавлении посылки") {
-		assert.NotEmpty(t, lastID, "идентификатора посылки нет")
-	}
+	newLine, err := service.Register(parcel.Client, parcel.Address)
+	require.NoError(t, err, "ошибка при добавлении посылки")
+	require.NotEmpty(t, newLine.Number, "нет идентификатора посылки")
 	// set status
 	// обновите статус, убедитесь в отсутствии ошибки
 	newStatus := ParcelStatusSent
-	err = store.SetStatus(int(lastID), newStatus)
-	assert.Nil(t, err, "новый статус не присвоен")
+	err = store.SetStatus(newLine.Number, newStatus)
+	require.NoError(t, err, "ошибка при вызове SetStatus")
 	// check
 	// получите добавленную посылку и убедитесь, что статус обновился
-	parcelReal, err := store.Get(int(lastID))
-	assert.Nil(t, err, "ошибка при получении инф о добавленной посылке")
+	parcelReal, err := store.Get(newLine.Number)
+	require.NoError(t, err, "ошибка при добавлении посылки, при вызове Get")
 	assert.Equal(t, parcelReal.Address, parcel.Address, "статус не совпал после SetStatus")
 }
 
@@ -159,13 +132,13 @@ func TestGetByClient(t *testing.T) {
 	// настройте подключение к БД
 	db, err := sql.Open("sqlite", "tracker.db")
 	if err != nil {
-		fmt.Println(err)
-		require.NotNil(t, err, "ошибка при подключении к  db, err := sql.Open(`sqlite`, `tracker.db`)")
+
+		require.Error(t, err, "ошибка при подключении к  db, err := sql.Open(`sqlite`, `tracker.db`)")
 		return
 	}
 	defer db.Close()
 	store := NewParcelStore(db)
-	//parcel := getTestParcel()
+	service := NewParcelService(store)
 	parcels := []Parcel{
 		getTestParcel(),
 		getTestParcel(),
@@ -182,38 +155,36 @@ func TestGetByClient(t *testing.T) {
 	// add
 	for i := 0; i < len(parcels); i++ {
 		// добавьте новую посылку в БД, убедитесь в отсутствии ошибки и наличии идентификатора
-		newLine, err := db.Exec("INSERT INTO parcel (client,status,address,created_at) VALUES (:Client,:Status,:Address,:CreatedAt)",
-			sql.Named("Client", parcels[i].Client),
-			sql.Named("Status", parcels[i].Status),
-			sql.Named("Address", parcels[i].Address),
-			sql.Named("CreatedAt", parcels[i].CreatedAt))
-		assert.Nil(t, err, "ошибка при добавлении посылки")
-		lastID, err := newLine.LastInsertId()
-		if assert.Nil(t, err, "ошибка при добавлении посылки") {
-			assert.NotEmpty(t, lastID, "идентификатора посылки нет")
-		}
+		id, err := service.Register(parcels[i].Client, parcels[i].Address)
+		if !assert.NoError(t, err, "ошибка при добавлении посылки при %d итерации, при вызове Register",i+1)||!assert.NotEmpty(t, 
+			id.Number, "нет идентификатора посылки"){ 
+					return}
+		
 		// обновляем идентификатор добавленной у посылки
-		parcels[i].Number = int(lastID)
+		parcels[i].Number = id.Number
 
 		// сохраняем добавленную посылку в структуру map, чтобы её можно было легко достать по идентификатору посылки
-		parcelMap[i] = parcels[i]
+		parcelMap[id.Number] = parcels[i]
 	}
-
 	// get by client
 	// получите список посылок по идентификатору клиента, сохранённого в переменной client
-	storedParcels, err := store.GetByClient(client)
-
 	// убедитесь в отсутствии ошибки
 	// убедитесь, что количество полученных посылок совпадает с количеством добавленных
-	assert.Nil(t, err, "ошибка при получении списка посылок")
-	assert.Equal(t, len(parcels), len(storedParcels), "количество полученных и добавленных посылок нет совпало")
+	storedParcels, err := store.GetByClient(client)
+	require.NoError(t, err, "ошибка при получении списка посылок client")
+	assert.Len(t, storedParcels, len(parcels), "количество добавленных и полученных посылок не совпадает")
 
 	// check
-	for i, parcel := range storedParcels {
-		assert.Equal(t, parcel, parcelMap[i], "посылки не совпадают: посылка №%d(%d)я итерация", i+1, i)
-
+	for _, parcel := range storedParcels {
+		if _, ok := parcelMap[parcel.Number]; ok {
+			assert.Equal(t, parcel, parcelMap[parcel.Number], "значения полей посылки №%d не совпадают", parcel.Number)
+		} else {
+			assert.True(t, ok, "посылка с ID%d не существует", parcel.Number)
+		}
 		// в parcelMap лежат добавленные посылки, ключ - идентификатор посылки, значение - сама посылка
 		// убедитесь, что все посылки из storedParcels есть в parcelMap
 		// убедитесь, что значения полей полученных посылок заполнены верно
+
 	}
 }
+

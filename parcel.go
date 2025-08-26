@@ -53,6 +53,9 @@ func (s ParcelStore) GetByClient(client int) ([]Parcel, error) {
 		//r-промежуточная структура для заполнения среза
 		r := Parcel{}
 		err = rows.Scan(&r.Number, &r.Client, &r.Status, &r.Address, &r.CreatedAt)
+		if err != nil {
+			return nil, err
+		}
 		res = append(res, r)
 	}
 	return res, err
@@ -64,28 +67,24 @@ func (s ParcelStore) SetStatus(number int, status string) error {
 		status), sql.Named("number", number))
 	return err
 }
-
 func (s ParcelStore) SetAddress(number int, address string) error {
 	// реализуйте обновление адреса в таблице parcel
 	// менять адрес можно только если значение статуса registered
-	stat, err := s.Get(number)
-	if stat.Status == ParcelStatusRegistered {
-		_, err := s.db.Exec("UPDATE parcel SET address = :address WHERE number = :number", sql.Named("address",
-			address), sql.Named("number", number))
-		return err
-	}
+
+	_, err := s.db.Exec("UPDATE parcel SET address = :address WHERE number = :number AND status =:status",
+		sql.Named("address", address), sql.Named("number", number), sql.Named("status", ParcelStatusRegistered))
 	return err
 }
-
 func (s ParcelStore) Delete(number int) error {
 	// реализуйте удаление строки из таблицы parcel
 	// удалять строку можно только если значение статуса registered
-	stat, err := s.Get(number)
-	if err != nil {
-		return err
-	}
-	if stat.Status == ParcelStatusRegistered {
-		_, err = s.db.Exec("DELETE FROM parcel WHERE number = :number", sql.Named("number", number))
-	}
+	//stat, err := s.Get(number)
+	//if err != nil {
+	//	return err
+	//}
+	//if stat.Status == ParcelStatusRegistered {
+	_, err := s.db.Exec("DELETE FROM parcel WHERE number = :number AND status = :status",
+		sql.Named("number", number), sql.Named("status", ParcelStatusRegistered))
+
 	return err
 }

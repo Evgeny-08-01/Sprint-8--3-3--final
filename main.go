@@ -25,7 +25,6 @@ type Parcel struct {
 type ParcelService struct {
 	store ParcelStore
 }
-
 func NewParcelService(store ParcelStore) ParcelService {
 	return ParcelService{store: store}
 }
