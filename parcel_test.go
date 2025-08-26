@@ -34,10 +34,7 @@ func TestAddGetDelete(t *testing.T) {
 	// prepare
 	// настройте подключение к БД
 	db, err := sql.Open("sqlite", "tracker.db")
-	if err != nil {
-		require.Error(t, err, "ошибка при подключении к  db, err := sql.Open(`sqlite`, `tracker.db`)")
-		return
-	}
+			require.NoError(t, err, "ошибка при подключении к  db, err := sql.Open(`sqlite`, `tracker.db`)")
 	defer db.Close()
 	store := NewParcelStore(db)
 	parcel := getTestParcel()
@@ -70,10 +67,7 @@ func TestSetAddress(t *testing.T) {
 	// prepare
 	// настройте подключение к БД
 	db, err := sql.Open("sqlite", "tracker.db")
-	if err != nil {
-		require.Error(t, err, "ошибка при подключении к  db, err := sql.Open(`sqlite`, `tracker.db`)")
-		return
-	}
+		require.NoError(t, err, "ошибка при подключении к  db, err := sql.Open(`sqlite`, `tracker.db`)")
 	defer db.Close()
 	store := NewParcelStore(db)
 	parcel := getTestParcel()
@@ -101,10 +95,7 @@ func TestSetStatus(t *testing.T) {
 	// prepare
 	// настройте подключение к БД
 	db, err := sql.Open("sqlite", "tracker.db")
-	if err != nil {
 		require.NoError(t, err, "ошибка при подключении к  db, err := sql.Open(`sqlite`, `tracker.db`)")
-		return
-	}
 	defer db.Close()
 	store := NewParcelStore(db)
 	parcel := getTestParcel()
@@ -131,11 +122,7 @@ func TestGetByClient(t *testing.T) {
 	// prepare
 	// настройте подключение к БД
 	db, err := sql.Open("sqlite", "tracker.db")
-	if err != nil {
-
-		require.Error(t, err, "ошибка при подключении к  db, err := sql.Open(`sqlite`, `tracker.db`)")
-		return
-	}
+		require.NoError(t, err, "ошибка при подключении к  db, err := sql.Open(`sqlite`, `tracker.db`)")
 	defer db.Close()
 	store := NewParcelStore(db)
 	service := NewParcelService(store)
@@ -175,7 +162,7 @@ func TestGetByClient(t *testing.T) {
 	assert.Len(t, storedParcels, len(parcels), "количество добавленных и полученных посылок не совпадает")
 
 	// check
-	for _, parcel := range storedParcels {
+	/*for _, parcel := range storedParcels {
 		if _, ok := parcelMap[parcel.Number]; ok {
 			assert.Equal(t, parcel, parcelMap[parcel.Number], "значения полей посылки №%d не совпадают", parcel.Number)
 		} else {
@@ -186,5 +173,9 @@ func TestGetByClient(t *testing.T) {
 		// убедитесь, что значения полей полученных посылок заполнены верно
 
 	}
-}
+}*/
 
+for _, parcel := range storedParcels {
+		expectedParcel, ok := parcelMap[parcel.Number]
+		require.True(t, ok)
+		require.Equal(t, expectedParcel, parcel)}}
